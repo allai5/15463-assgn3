@@ -29,9 +29,9 @@ class BilateralFilter():
         self.gmax = np.max(self.img_gc)
         self.bmax = np.max(self.img_bc)
 
-        self.sigs  = 25.0
+        self.sigs  = 25
         # self.sigs  = 3.0
-        self.sigr  = 0.1
+        self.sigr  = 0.05
 
         self.r_segs = int((self.rmax - self.rmin) / self.sigr)
         self.g_segs = int((self.gmax - self.gmin) / self.sigr)
@@ -39,7 +39,7 @@ class BilateralFilter():
         self.prev_weights = np.zeros((self.imga.shape[0], self.imga.shape[1]))
 
     def gr(self, mu, sigma):
-        return np.random.normal(mu, sigma)
+        return np.exp(-np.square(mu) / (2.0 * np.square(sigma)))
 
     def get_weights(self, imgc, ij):
         ij0 = ij - self.sigr
@@ -77,18 +77,16 @@ class BilateralFilter():
             cmin = self.bmin
 
         J = np.zeros((imgc.shape[0], imgc.shape[1]))
-        dim = int(3.0 * self.sigs)
-        for j in range(segs + 1):
-            print(str(j) + "/" + str(segs))
-            ij = cmin + j * (cmax - cmin)/segs
-            ij1 = ij + self.sigr
-            Gj = self.gr(imgc - ij, self.sigr)
+        kernel_dim = int(3 * self.sigs)
 
-            Kj = cv2.GaussianBlur(Gj, (dim, dim), self.sigs) / 255.0
+        for j in range(segs + 1):
+            # print(str(j) + "/" + str(segs))
+            ij = cmin + j * (cmax - cmin)/segs
+            Gj = self.gr(imgc - ij, self.sigr)
+            Kj = cv2.GaussianBlur(Gj, (kernel_dim, kernel_dim), self.sigs)
             Hj = np.multiply(Gj, imgc)
-            Hsj = cv2.GaussianBlur(Hj, (dim, dim), self.sigs) / 255.0
-            # print(Hsj)
-            # print(np.count_nonzero(np.subtract(Hsj, Hj)))
+            # print(np.subtract(Kj, Gj))
+            Hsj = cv2.GaussianBlur(Hj, (kernel_dim, kernel_dim), self.sigs)
             Jj = np.divide(Hsj, Kj)
 
             min_value = np.nanmin(Jj)
@@ -97,7 +95,6 @@ class BilateralFilter():
                 Jj[nid] = 0
 
             J = np.add(J, np.multiply(Jj, self.get_weights(imgc, ij)))
-            # print(np.max(J))
 
         return J
 
@@ -108,7 +105,11 @@ class BilateralFilter():
 
         print(np.max(frc), np.max(fgc), np.max(fbc))
         img_bf = np.dstack((frc, fgc, fbc))
+        fig = plt.figure()
+        fig.add_subplot(2,1,1)
         plt.imshow(np.clip(img_bf, 0, 1), cmap='gray')
+        fig.add_subplot(2,1,2)
+        plt.imshow(self.imga)
         plt.show()
         return img_bf
 
