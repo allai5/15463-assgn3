@@ -101,9 +101,7 @@ class BilateralFilter():
         return img_joint
 
     def detail_transfer(self):
-        eps = 0.0001
-        # Fbase = self.bilateral_filter(1, 25, 0.05)
-        # Anr = self.joint_filter(25, 0.05)
+        eps = 0.02
         Fbase = np.clip(io.imread("flash_bilateral_filter.png"), 0, 255) / 255.0
         Anr = np.clip(io.imread("joint_filter.png"), 0, 255) / 255.0
 
@@ -112,40 +110,43 @@ class BilateralFilter():
         plt.show()
 
         nan_ids = np.argwhere(np.isnan(detail))
-        print(detail)
         min_value = np.min(detail)
         for nid in nan_ids:
             detail[nid] = min_value;
 
         detail = np.clip(detail, 0, 1)
 
-        plt.imshow(detail)
-        plt.show()
         Adet = np.multiply(Anr, detail)
         Adet = np.clip(Adet, 0, 1)
 
 
-        # fig = plt.figure()
-        # fig.add_subplot(2,1,1)
-        # plt.imshow(Anr)
-        # fig.add_subplot(2,1,2)
         plt.imshow(Adet)
         plt.show()
         io.imsave("detail_transfer.png", Adet)
         return Adet
 
-    def get_mask(self, thresh):
-        Alin_p = io.imread("")
-        Flin = io.imread("")
-        Alin = Alin_p * (() / ())
+    def linearize_img(self, C_nonlin):
+
+        C_lin = np.where((C_nonlin <= 0.0404482), C_nonlin / 12.92,
+                         np.power((C_nonlin + 0.055)/1.055, 2.4))
+        return C_lin
+
+    def get_mask(self, thresh, iso_f, iso_a, tf, ta):
+        Alin = self.linearize_img(io.imread("data/lamp/lamp_ambient.tiff")/65535.0)
+        Flin = self.linearize_img(io.imread("data/lamp/lamp_flash.tiff")/65535.0)
+        # Alin = Alin_p * ((iso_f * tf) / (iso_a * ta))
 
         mask = np.where(Flin - Alin <= thresh, 1, 0)
         return mask
 
     def apply_mask(self):
-        Adet = self.detail_transfer()
-        mask = self.get_mask(0.05)
-        Afinal = (1.0 - mask)*Adet + mask*self.imga
-
+        Adet = io.imread("detail_transfer.png")
+        iso_f = 0
+        iso_a = 0
+        tf = 0
+        ta = 0
+        mask = self.get_mask(0.05, 0, 0, 0, 0)
+        Afinal = np.add(np.multiply((1.0 - mask), Adet), np.multiply(mask, self.imga))
+        io.imsave("final_lamp.png", Afinal)
 # class JointBilateralFilter():
 
