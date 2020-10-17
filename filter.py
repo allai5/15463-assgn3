@@ -1,7 +1,13 @@
 """
-Implementations of Piecewise Bilateral Filter and Joint Bilateral Filter
+Implementations of:
+    - Piecewise Bilateral Filter
+    - Joint Bilateral Filter
+    - Detail Transfer
+    - Shadow/Specularity Mask
 
-Reference: http://hhoppe.com/flash.pdf
+References:
+    - http://hhoppe.com/flash.pdf
+    - https://people.csail.mit.edu/fredo/PUBLI/Siggraph2002/DurandBilateral.pdf
 """
 import numpy as np
 from skimage import io
@@ -52,7 +58,7 @@ class BilateralFilter():
 
         for j in range(segs + 1):
             ij = cmin + j * (cmax - cmin)/segs
-            Gj = self.gr(imgc - ij, sigr)
+            # Gj = self.gr(imgc - ij, sigr)
             if (joint):
                 Gj = self.gr(imgcf - ij, sigr)
             else:
@@ -106,22 +112,18 @@ class BilateralFilter():
         Anr = np.clip(io.imread("joint_filter.png"), 0, 255) / 255.0
 
         detail = np.divide((self.imgf + eps), (Fbase + eps))
-        plt.imshow(self.imgf + eps)
-        plt.show()
 
         nan_ids = np.argwhere(np.isnan(detail))
         min_value = np.min(detail)
+
         for nid in nan_ids:
-            detail[nid] = min_value;
+            detail[nid] = 0
 
         detail = np.clip(detail, 0, 1)
 
         Adet = np.multiply(Anr, detail)
         Adet = np.clip(Adet, 0, 1)
 
-
-        plt.imshow(Adet)
-        plt.show()
         io.imsave("detail_transfer.png", Adet)
         return Adet
 
@@ -131,22 +133,40 @@ class BilateralFilter():
                          np.power((C_nonlin + 0.055)/1.055, 2.4))
         return C_lin
 
-    def get_mask(self, thresh, iso_f, iso_a, tf, ta):
-        Alin = self.linearize_img(io.imread("data/lamp/lamp_ambient.tiff")/65535.0)
-        Flin = self.linearize_img(io.imread("data/lamp/lamp_flash.tiff")/65535.0)
-        # Alin = Alin_p * ((iso_f * tf) / (iso_a * ta))
+    def shadow_mask(self, thresh):
+        Alin = self.linearize_img(io.imread("data/lamp/lamp_ambient.tif")/255.0)
+        Flin = self.linearize_img(io.imread("data/lamp/lamp_flash.tif")/255.0)
 
-        mask = np.where(Flin - Alin <= thresh, 1, 0)
-        return mask
+        Ar = Alin[:,:,0]
+        Ag = Alin[:,:,1]
+        Ab = Alin[:,:,2]
+
+        Fr = Flin[:,:,0]
+        Fg = Flin[:,:,1]
+        Fb = Flin[:,:,2]
+
+        r_mask = np.where(Fr - Ar <= thresh, 1.0, 0.0)
+        g_mask = np.where(Fg - Ag <= thresh, 1.0, 0.0)
+        b_mask = np.where(Fb - Ab <= thresh, 1.0, 0.0)
+
+        return r_mask, g_mask, b_mask
+
+    # def specular_mask(self):
+
 
     def apply_mask(self):
-        Adet = io.imread("detail_transfer.png")
+        Adet = io.imread("detail_transfer.png") / 255.0
+        Abase = io.imread("bilateral_filter.png") / 255.0
         iso_f = 0
         iso_a = 0
         tf = 0
         ta = 0
-        mask = self.get_mask(0.05, 0, 0, 0, 0)
-        Afinal = np.add(np.multiply((1.0 - mask), Adet), np.multiply(mask, self.imga))
+        r_mask, g_mask, b_mask = self.shadow_mask(0.1)
+        mask = np.dstack((r_mask, g_mask, b_mask))
+        print(mask)
+        plt.imshow(mask)
+        plt.show()
+        Afinal = np.add(np.multiply((1.0 - mask), Adet), np.multiply(mask, Abase))
         io.imsave("final_lamp.png", Afinal)
 # class JointBilateralFilter():
 
