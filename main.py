@@ -20,9 +20,10 @@ def main():
 
 
     gp = GradientProcess()
+    gp.fuse_gradient_test()
 
-    gp.diff_and_integrate()
-
+    # img = io.imread("data/museum/museum_flash.png")/255.0
+    # gp.gradient_field(img)
 
 if __name__ == "__main__":
     main()
