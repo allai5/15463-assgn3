@@ -1,5 +1,7 @@
 from filter import BilateralFilter
 from gradient import GradientProcess
+import matplotlib.pyplot as plt
+import numpy as np
 from skimage import io
 apath = "data/lamp/lamp_ambient.tif"
 fpath = "data/lamp/lamp_flash.tif"
@@ -20,7 +22,27 @@ def main():
 
 
     gp = GradientProcess()
-    gp.fuse_gradient_test()
+    I = gp.gradient_field_test()
+    plt.imshow(I)
+    plt.show()
+
+    # It = io.imread("data/museum/museum_flash.png") / 255.0
+    # ItRGB = np.dstack((It[:,:,0], It[:,:,1],  It[:,:,2]))
+    # diff = np.subtract(I, ItRGB)
+    # print(diff)
+    # plt.imshow(diff)
+    # plt.show()
+
+    # gp.fuse_gradient_test()
+    # myimg = io.imread("final_museum.png")/255.0
+    # theirimg = io.imread("data/museum/museum_flash.png")/255.0
+    # img3d = np.dstack((theirimg[:,:,0], theirimg[:,:,1], theirimg[:,:,2]))
+    # diff = np.subtract(myimg, img3d)
+    # print(diff)
+    # plt.imshow(diff)
+    # plt.show()
+
+
 
     # img = io.imread("data/museum/museum_flash.png")/255.0
     # gp.gradient_field(img)

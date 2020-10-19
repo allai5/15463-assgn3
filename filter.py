@@ -113,6 +113,8 @@ class BilateralFilter():
 
         detail = np.divide((self.imgf + eps), (Fbase + eps))
 
+        print(np.min(detail), np.max(detail))
+
         nan_ids = np.argwhere(np.isnan(detail))
         min_value = np.min(detail)
 
