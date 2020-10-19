@@ -15,18 +15,19 @@ class GradientProcess():
     def __init__(self):
         pass
 
+    def div_x(self, imgc):
+        kernel_x = [[1, -1]]
+        img_dx = signal.convolve2d(imgc, kernel_x, mode='same')
+        return img_dx
+
+    def div_y(self, imgc):
+        kernel_y = [[1],[-1]]
+        img_dy = signal.convolve2d(imgc, kernel_y, mode='same')
+        return img_dy
+
     def gradient_channel(self, imgc):
         img_dxx = self.div_x(self.div_x(imgc))
         img_dyy = self.div_y(self.div_y(imgc))
-
-        # kernel_x = [[1, -1]]
-        # kernel_y = [[1],[-1]]
-
-        # img_dx = signal.convolve2d(imgc, kernel_x, mode='same')
-        # img_dxx = signal.convolve2d(img_dx, kernel_x, mode='same')
-
-        # img_dy = signal.convolve2d(imgc, kernel_y, mode='same')
-        # img_dyy = signal.convolve2d(img_dx, kernel_y, mode='same')
 
         return img_dxx + img_dyy
 
@@ -56,14 +57,14 @@ class GradientProcess():
         while (np.linalg.norm(r) > eps and n < N):
             q = self.Laplacian_filter(d)
             eta = delta_new / (np.sum(d * q))
-            # eta = np.nan_to_num(eta)
+            eta = np.nan_to_num(eta)
             Is_c = self.set_boundary((Is_c + (eta * d)), imgc)
 
             r = r - (eta * q)
             delta_old = delta_new
             delta_new = np.sum(r * r)
             beta = np.divide(delta_new, delta_old)
-            # beta = np.nan_to_num(beta)
+            beta = np.nan_to_num(beta)
 
             d = r + (beta * d)
             n += 1
@@ -72,7 +73,7 @@ class GradientProcess():
 
     # Test Poisson Solver
     def gradient_field_test(self):
-        img = io.imread("data/museum/museum_ambient.png") / 255.0
+        img = io.imread("data/museum/museum_flash.png") / 255.0
 
         img_r = img[:,:,0]
         img_g = img[:,:,1]
@@ -101,15 +102,6 @@ class GradientProcess():
         plt.show()
         return Is
 
-    def div_x(self, imgc):
-        kernel_x = [[1, -1]]
-        img_dx = signal.convolve2d(imgc, kernel_x, mode='same')
-        return img_dx
-
-    def div_y(self, imgc):
-        kernel_y = [[1],[-1]]
-        img_dy = signal.convolve2d(imgc, kernel_y, mode='same')
-        return img_dy
 
     def goc_map(self, imgc, f_imgc):
         fx = self.div_x(f_imgc)
@@ -206,11 +198,19 @@ class GradientProcess():
         Mb = self.goc_map(img_b, f_img_b)
 
         M = np.dstack((Mr, Mg, Mb))
+        plt.imshow(M)
+        plt.show()
 
+        print(M)
         # saturation map (per channel)
         ws_r = self.saturation_map(f_img_r)
         ws_g = self.saturation_map(f_img_g)
         ws_b = self.saturation_map(f_img_b)
+
+        # w = np.dstack((ws_r, ws_g, ws_b))
+
+        # plt.imshow(w)
+        # plt.show()
 
         # new gradient field fora fused image (per channel)
         gradFs_r = self.fuse_gradient_channel(ws_r, ax_r, ay_r, Mr, fx_r, fy_r)
@@ -220,19 +220,9 @@ class GradientProcess():
         gradFx = np.dstack((gradFs_r[:,:,0], gradFs_g[:,:,0], gradFs_b[:,:,0]))
         gradFy = np.dstack((gradFs_r[:,:,1], gradFs_g[:,:,1], gradFs_b[:,:,1]))
 
-        plt.imshow(gradFx)
-        plt.show()
-        plt.imshow(gradFy)
-        plt.show()
-
-        io.imsave("gradFx.png", gradFx)
-        io.imsave("gradFy.png", gradFy)
-
-        # divF = Fxx + Fyy
-
         gradFsx_r = gradFs_r[:,:,0]
         gradFsy_r = gradFs_r[:,:,1]
-        gradFsx_g = gradFs_r[:,:,0]
+        gradFsx_g = gradFs_g[:,:,0]
         gradFsy_g = gradFs_g[:,:,1]
         gradFsx_b = gradFs_b[:,:,0]
         gradFsy_b = gradFs_b[:,:,1]
@@ -249,11 +239,17 @@ class GradientProcess():
         divFs_r = Fr_xx + Fr_yy
         divFs_g = Fg_xx + Fg_yy
         divFs_b = Fb_xx + Fb_yy
+        # divFs_g = divFs_r
+        # divFs_b = divFs_r
 
         # should all be the same shape anyway
-        Is_r_init = np.zeros((img_r.shape[0], img_r.shape[1]))
-        Is_g_init = np.zeros((img_r.shape[0], img_r.shape[1]))
-        Is_b_init = np.zeros((img_r.shape[0], img_r.shape[1]))
+        # Is_r_init = np.zeros((img_r.shape[0], img_r.shape[1]))
+        # Is_g_init = np.zeros((img_r.shape[0], img_r.shape[1]))
+        # Is_b_init = np.zeros((img_r.shape[0], img_r.shape[1]))
+
+        Is_r_init = f_img_r
+        Is_g_init = f_img_g
+        Is_b_init = f_img_b
 
         eps = 0.01
         N = 2000
@@ -263,8 +259,8 @@ class GradientProcess():
         Is_g = self.poisson_solve(divFs_g, Is_g_init, eps, N, img_g)
         Is_b = self.poisson_solve(divFs_b, Is_b_init, eps, N, img_b)
 
-        Is = np.dstack((Is_r, Is_g, Is_b))
+        Is = np.clip(np.dstack((Is_r, Is_g, Is_b)), 0.0, 1.0)
         plt.imshow(Is)
         plt.show()
-        io.imsave("final_museum.png", Is)
+        plt.imsave("final_museum.png", Is)
         return Is

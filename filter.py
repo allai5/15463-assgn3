@@ -153,7 +153,23 @@ class BilateralFilter():
 
         return r_mask, g_mask, b_mask
 
-    # def specular_mask(self):
+    def specular_mask(self):
+        Alin = self.linearize_img(io.imread("data/lamp/lamp_ambient.tif")/255.0)
+        Flin = self.linearize_img(io.imread("data/lamp/lamp_flash.tif")/255.0)
+
+        Ar = Alin[:,:,0]
+        Ag = Alin[:,:,1]
+        Ab = Alin[:,:,2]
+
+        Fr = Flin[:,:,0]
+        Fg = Flin[:,:,1]
+        Fb = Flin[:,:,2]
+
+        r_mask = np.where(Fr <= 0.95, 1.0, 0.0)
+        g_mask = np.where(Fg <= 0.95, 1.0, 0.0)
+        b_mask = np.where(Fb <= 0.95, 1.0, 0.0)
+
+        return r_mask, g_mask, b_mask
 
 
     def apply_mask(self):
@@ -163,9 +179,16 @@ class BilateralFilter():
         iso_a = 0
         tf = 0
         ta = 0
-        r_mask, g_mask, b_mask = self.shadow_mask(0.1)
+        r_shadowmask, g_shadowmask, b_shadowmask = self.shadow_mask(0.1)
+        r_specularmask, g_specularmask, b_specularmask = self.specular_mask()
+
+        r_mask = np.logical_or(r_shadowmask, r_specularmask)
+        g_mask = np.logical_or(g_shadowmask, g_specularmask)
+        b_mask = np.logical_or(b_shadowmask, b_specularmask)
+
         mask = np.dstack((r_mask, g_mask, b_mask))
         print(mask)
+
         plt.imshow(mask)
         plt.show()
         Afinal = np.add(np.multiply((1.0 - mask), Adet), np.multiply(mask, Abase))
