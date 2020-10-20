@@ -16,7 +16,7 @@ import cv2
 import matplotlib.pyplot as plt
 
 class BilateralFilter():
-    def __init__(self, apath, fpath, sigs, sigr):
+    def __init__(self, apath, fpath):
         self.apath = apath
         self.fpath = fpath
         self.imga = (io.imread(apath)) / 255.0
@@ -88,10 +88,6 @@ class BilateralFilter():
         filter_b = self.filter_channel(2, 0, flash, sigs, sigr)
 
         img_filter = np.dstack((filter_r, filter_g, filter_b))
-
-        plt.imshow(img_filter)
-        plt.show()
-
         return img_filter
 
     def joint_filter(self, sigs, sigr):
@@ -100,33 +96,21 @@ class BilateralFilter():
         joint_b = self.filter_channel(2, 1, 0, sigs, sigr)
 
         img_joint = np.dstack((joint_r, joint_g, joint_b))
-
-        plt.imshow(img_joint)
-        plt.show()
-
         return img_joint
 
-    def detail_transfer(self):
-        eps = 0.02
+    def detail_transfer(self, eps):
         Fbase = np.clip(io.imread("flash_bilateral_filter.png"), 0, 255) / 255.0
         Anr = np.clip(io.imread("joint_filter.png"), 0, 255) / 255.0
 
         detail = np.divide((self.imgf + eps), (Fbase + eps))
-
-        print(np.min(detail), np.max(detail))
-
         nan_ids = np.argwhere(np.isnan(detail))
         min_value = np.min(detail)
-
-        for nid in nan_ids:
-            detail[nid] = 0
-
+        detail = np.nan_to_num(detail)
         detail = np.clip(detail, 0, 1)
 
         Adet = np.multiply(Anr, detail)
         Adet = np.clip(Adet, 0, 1)
 
-        io.imsave("detail_transfer.png", Adet)
         return Adet
 
     def linearize_img(self, C_nonlin):
@@ -165,33 +149,25 @@ class BilateralFilter():
         Fg = Flin[:,:,1]
         Fb = Flin[:,:,2]
 
-        r_mask = np.where(Fr <= 0.95, 1.0, 0.0)
-        g_mask = np.where(Fg <= 0.95, 1.0, 0.0)
-        b_mask = np.where(Fb <= 0.95, 1.0, 0.0)
+        r_mask = np.where(Fr <= 0.95, 0.0, 1.0)
+        g_mask = np.where(Fg <= 0.95, 0.0, 1.0)
+        b_mask = np.where(Fb <= 0.95, 0.0, 1.0)
 
         return r_mask, g_mask, b_mask
 
 
-    def apply_mask(self):
+    def apply_mask(self, shadow_thresh):
         Adet = io.imread("detail_transfer.png") / 255.0
         Abase = io.imread("bilateral_filter.png") / 255.0
-        iso_f = 0
-        iso_a = 0
-        tf = 0
-        ta = 0
-        r_shadowmask, g_shadowmask, b_shadowmask = self.shadow_mask(0.1)
+        r_shadowmask, g_shadowmask, b_shadowmask = self.shadow_mask(shadow_thresh)
         r_specularmask, g_specularmask, b_specularmask = self.specular_mask()
 
-        r_mask = np.logical_or(r_shadowmask, r_specularmask)
-        g_mask = np.logical_or(g_shadowmask, g_specularmask)
-        b_mask = np.logical_or(b_shadowmask, b_specularmask)
+        r_mask = np.logical_or(r_shadowmask, r_specularmask).astype(float)
+        g_mask = np.logical_or(g_shadowmask, g_specularmask).astype(float)
+        b_mask = np.logical_or(b_shadowmask, b_specularmask).astype(float)
 
         mask = np.dstack((r_mask, g_mask, b_mask))
-        print(mask)
-
         plt.imshow(mask)
         plt.show()
         Afinal = np.add(np.multiply((1.0 - mask), Adet), np.multiply(mask, Abase))
-        io.imsave("final_lamp.png", Afinal)
-# class JointBilateralFilter():
-
+        return Afinal
